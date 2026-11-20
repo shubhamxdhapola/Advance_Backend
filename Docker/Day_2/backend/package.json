@@ -1,5 +1,5 @@
 {
-  "name": "first_app",
+  "name": "backend",
   "version": "1.0.0",
   "description": "",
   "main": "index.js",
@@ -11,6 +11,7 @@
   "license": "ISC",
   "type": "module",
   "dependencies": {
+    "dotenv": "^18.0.10",
     "express": "^5.3.0"
   }
 }
