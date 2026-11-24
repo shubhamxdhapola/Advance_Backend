@@ -16,23 +16,26 @@ await redis.connect();
 
 app.get('/api/products', async (_req, res) => {
 
-  let cachedProducts = await redis.get("product:all")
+  // Fetch from cache memory
+  const cachedProducts = await JSON.parse(await redis.get("product:all")) 
 
-  if (cachedProducts) {
+  if (cachedProducts) { // If found -> return
     console.log("Cache hit")
-    cachedProducts = await JSON.parse(cachedProducts)
     return res.status(200).json(cachedProducts)
   }
 
+  // If not found in cache
   console.log("Cache miss")
 
   const products = await Product.find().sort({
     createdAt: -1
   });
 
+  // Store in cache
   await redis.set("product:all", JSON.stringify(products))
 
   return res.status(200).json(products);
+
 });
 
 
@@ -40,9 +43,10 @@ app.post('/api/products', async (req, res) => {
 
   const product = await Product.create(req.body);
 
-  await redis.del("product:all") // Cache invalidation
+  await redis.del("product:all") // Cache invalidation => Remove the old cache
 
   return res.status(201).json(product);
+
 });
 
 
@@ -59,9 +63,10 @@ app.patch('/api/products/:id', async (req, res) => {
   if (!product) {
     return res.status(404).json({ error: 'Product not found' });
   }
-  await redis.del("product:all") // Cache invalidation
+  await redis.del("product:all") // Cache invalidation  => Remove the old cache
 
   return res.status(200).json(product);
+
 });
 
 
@@ -74,10 +79,43 @@ app.delete('/api/products/:id', async (req, res) => {
   if (!product) {
     return res.status(404).json({ error: 'Product not found' });
   }
-  await redis.del("product:all") // Cache invalidation
+  await redis.del("product:all") // Cache invalidation => Remove the old cache
 
   return res.status(204).json({ message: "Product deleted" });
 });
+
+
+app.post('/send-otp', async (req, res) => {
+  const { phone } = req.body
+  const otp = Math.floor(100000 + Math.random() * 900000).toString() // Generate the OTP
+
+  // Store the OTP in redis for 5 minutes(300s)
+  await redis.set(
+    `otp:${phone}`, JSON.stringify(otp),
+    { EX: 300 }
+  )
+
+  return res.status(201).json({ message: `OTP : ${otp} sent to ${phone}` })
+})
+
+app.post('/verify-otp', async (req, res) => {
+
+  const { phone, enteredOtp } = req.body
+
+  // Get the stored otp
+  const sentOtp = await JSON.parse(await redis.get(`otp:${phone}`))
+
+  if (sentOtp === null) {
+    return res.status(404).json({ message: "OTP expired" })
+  }
+
+  if (sentOtp !== enteredOtp) {
+    return res.status(401).json({ message: "OTP invalid" })
+  }
+  await redis.del(`otp:${phone}`) // Delete otp after verification
+  return res.status(200).json({ message: "OTP verified successfully" })
+  
+})
 
 const port = Number(process.env.PORT) || 3000;
 
