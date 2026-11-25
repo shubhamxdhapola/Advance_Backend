@@ -3,12 +3,15 @@ import express from 'express';
 import mongoose from 'mongoose';
 import { connectToDatabase } from './config/db.js';
 import { Product } from './models/product.model.js';
-import { redis } from './config/redis.js';
+import redis from './config/redis.js';
 import { rateLimiter } from './middleware/rate.limiter.js';
+import { emailQueue } from './queues/email.queue.js';
 
 const app = express();
 app.use(express.json({ limit: '10kb' }));
 
+
+// Caching:
 app.get('/api/products', rateLimiter, async (_req, res) => {
 
   // Fetch from cache memory
@@ -33,17 +36,32 @@ app.get('/api/products', rateLimiter, async (_req, res) => {
 
 });
 
-
 app.post('/api/products', rateLimiter, async (req, res) => {
 
+  const email = req.body.email;
   const product = await Product.create(req.body);
 
   await redis.del("product:all") // Cache invalidation => Remove the old cache
 
+  await emailQueue.add(
+    'send-email', // Job name
+
+    // Job data
+    {
+      message: "Welcome",
+      to: email
+    }, {
+    attempts: 5, // Retry upto 5 attemps max
+    backoff: { // Use exponential dealy to send failed mail start with 2 sec, then 4, then 8, 16 and so on
+      type: "exponential",
+      delay: 2000
+    },
+    removeOnComplete: true // Remove successful jobs fromt he redis
+  })
+
   return res.status(201).json(product);
 
 });
-
 
 app.patch('/api/products/:id', async (req, res) => {
   if (!mongoose.isValidObjectId(req.params.id)) {
@@ -64,7 +82,6 @@ app.patch('/api/products/:id', async (req, res) => {
 
 });
 
-
 app.delete('/api/products/:id', async (req, res) => {
   if (!mongoose.isValidObjectId(req.params.id)) {
     return res.status(400).json({ error: 'Invalid product ID' });
@@ -80,6 +97,7 @@ app.delete('/api/products/:id', async (req, res) => {
 });
 
 
+// OTP's :
 app.post('/send-otp', async (req, res) => {
   const { phone } = req.body
   const otp = Math.floor(100000 + Math.random() * 900000).toString() // Generate the OTP

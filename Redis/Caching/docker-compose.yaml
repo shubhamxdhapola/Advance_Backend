@@ -13,6 +13,16 @@ services:
     volumes:
       - ./backend:/app
       - /app/node_modules
+  worker:
+    build: ./backend
+    command: "node workers/email.worker.js"
+    environment:
+      - REDIS_URL=redis://redis:6379
+    depends_on:
+      - redis
+    volumes:
+      - ./backend:/app
+      - /app/node_modules
   redis:
     image: redis:latest
     ports:
