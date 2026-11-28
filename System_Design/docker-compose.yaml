@@ -1,0 +1,33 @@
+services:
+  nginx:
+    image: nginx
+    ports:
+      - 8000:80
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf
+  
+  backend1:
+    build: ./backend
+    ports:
+      - 8001:5001
+    environment:
+      - PORT=5001
+      - SERVER_NAME=Server_1
+
+  backend2:
+    build: ./backend
+    ports:
+      - 8002:5001
+    environment:
+      - PORT=5001
+      - SERVER_NAME=Server_2
+
+  backend3:
+    build: ./backend
+    ports:
+      - 8003:5001
+    environment:
+      - PORT=5001
+      - SERVER_NAME=Server_3
+    
+

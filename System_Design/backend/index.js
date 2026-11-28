@@ -1,11 +1,11 @@
-import express from 'express'
 import 'dotenv/config'
+import express from 'express'
 
 const app = express()
 const PORT = process.env.PORT || 5001
 
-app.use('/', (req, res) => {
-    return res.status(200).json({ message: "Welcome" })
+app.use('/api', (req, res) => {
+    return res.status(200).json({ message: `Hello from ${process.env.SERVER_NAME}` })
 })
 
 app.listen(PORT, () => {
